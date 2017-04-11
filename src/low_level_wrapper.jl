@@ -5,7 +5,7 @@ function SCS_version()
     return unsafe_string(ccall((:scs_version, SCS.scs), Cstring, ()))
 end
 
-for (T, lib) in zip([SCS.Direct, SCS.Indirect], [SCS.scs, SCS.scsindir])
+for (T, lib) in zip([SCS.Direct, SCS.Indirect, SCS.Gpu], [SCS.scs, SCS.scsindir, SCS.scsgpu])
     @eval begin
         function SCS_init(::Type{$T}, data::SCSData, cone::SCSCone)
             # Initialize the info struct

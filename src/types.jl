@@ -106,3 +106,4 @@ type Solution
 end
 immutable Direct end
 immutable Indirect end
+immutable Gpu end

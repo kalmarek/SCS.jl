@@ -4,7 +4,7 @@ using BinDeps
 
 blasvendor = Base.BLAS.vendor()
 
-libnames = ["libscsdir", "libscsindir"]
+libnames = ["libscsdir", "libscsindir", "libscsgpu"]
 
 if (is_apple() ? (blasvendor == :openblas64) : false)
     aliases = [libname*"64" for libname in libnames]
@@ -14,6 +14,7 @@ end
 
 scs = library_dependency("scs", aliases=[libnames[1]])
 scsindir = library_dependency("scsindir", aliases=[libnames[2]])
+scsgpu = library_dependency("scsgpu", aliases=[libnames[3]])
 
 if is_apple()
     using Homebrew
@@ -56,13 +57,17 @@ if blasvendor == :mkl
     else
         ldflags = "$ldflags -lmkl_intel"
     end
-    cflags = "$cflags -fopenmp"
-    ldflags = "$ldflags -lmkl_gnu_thread -lmkl_rt -lmkl_core -lgomp"
+    ldflags = "$ldflags -lmkl_gnu_thread -lmkl_rt -lmkl_core"
 end
+
+culdflags = "-L/opt/cuda/lib64 -lcudart -lcublas -lcusparse"
+cudaflags = "$cflags -I/opt/cuda/include -Wno-c++11-long-long"
+
 
 ENV2 = copy(ENV)
 ENV2["LDFLAGS"] = ldflags
 ENV2["CFLAGS"] = cflags
+ENV2["CUDAFLAGS"] = cudaflags
 
 provides(SimpleBuild,
     (@build_steps begin
@@ -80,7 +85,13 @@ provides(SimpleBuild,
                 setenv(`make out/$(libnames[2])`, ENV2)
                 `mv out/$(libnames[2]) $prefix/lib`
             end)
+        FileRule(joinpath(prefix, "lib", libnames[3]),
+            @build_steps begin
+                ChangeDirectory(srcdir)
+                setenv(`make out/$(libnames[3])`, ENV2)
+                `mv out/$(libnames[3]) $prefix/lib`
+            end)
     end),
-    [scs, scsindir], os=:Unix)
+    [scs, scsindir, scsgpu], os=:Unix)
 
-@BinDeps.install Dict(:scs => :scs, :scsindir => :scsindir)
+@BinDeps.install Dict(:scs => :scs, :scsindir => :scsindir, :scsgpu =>:scsgpu)
