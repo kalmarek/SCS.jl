@@ -35,10 +35,11 @@ prefix = joinpath(BinDeps.depsdir(direct), "usr")
 srcdir = joinpath(BinDeps.depsdir(direct), "src", "scs-$version/")
 
 ldflags = ""
+cflags = "-DCOPYAMATRIX -DDLONG -DUSE_LAPACK -DCTRLC=1"
+
 if is_apple()
     ldflags = "$ldflags -undefined suppress -flat_namespace"
 end
-cflags = "-DCOPYAMATRIX -DDLONG -DUSE_LAPACK -DCTRLC=1"
 if blasvendor == :openblas64
     cflags = "$cflags -DBLAS64 -DBLASSUFFIX=_64_"
 end
@@ -49,9 +50,11 @@ if blasvendor == :mkl
     else
         ldflags = "$ldflags -lmkl_intel"
     end
-    cflags = "$cflags -fopenmp"
-    ldflags = "$ldflags -lmkl_gnu_thread -lmkl_rt -lmkl_core -lgomp"
+    ldflags = "$ldflags -lmkl_gnu_thread -lmkl_rt -lmkl_core"
 end
+
+cflags = "$cflags -fopenmp"
+ldflags = "$ldflags -lgomp"
 
 ENV2 = copy(ENV)
 ENV2["LDFLAGS"] = ldflags
