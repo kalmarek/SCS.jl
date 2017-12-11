@@ -137,3 +137,6 @@ println(getvalue(take))
 # [  Gold] = 0.99999492720597
 # [Silver] = 0.4666851698368782
 ```
+
+### Note on multithreading
+You have to set `OMP_NUM_THREADS` env variable to the desired number (e.g. the number of physical cores) to enable threading (via OpenMP) in the lin-sys phase of the solver. Threading in the projection phase depends on the BLAS implementation.
