@@ -16,7 +16,7 @@ MOIU.@model(SCSModelData,
             (MOI.VectorAffineFunction,))
 for T in [SCS.Direct, SCS.Indirect]
     optimizer = MOIU.CachingOptimizer(SCSModelData{Float64}(),
-                                      SCS.Optimizer(linear_solver=T, eps=1e-8,
+                                      SCS.Optimizer(linear_solver=T, eps=1e-6,
                                                     verbose=0))
 
     config = MOIT.TestConfig(atol=1e-5)
