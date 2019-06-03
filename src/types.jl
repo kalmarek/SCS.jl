@@ -6,6 +6,14 @@ SCSVecOrMatOrSparse = Union{VecOrMat, SparseMatrixCSC{Float64,Int}}
 
 SCSInt = Union{Int64, Int32}
 
+abstract type LinearSolver end
+
+struct Direct <: LinearSolver end
+struct Indirect <: LinearSolver end
+struct Gpu <: LinearSolver end
+
+inttype(::Type{<:LinearSolver}) = Int64
+inttype(::Type{Gpu}) = Int32
 
 struct SCSMatrix{T <: SCSInt}
     values::Ptr{Cdouble}
@@ -73,15 +81,16 @@ function _SCS_user_settings(default_settings::SCSSettings{T};
     return SCSSettings{T}(normalize, scale, rho_x, max_iters, eps, alpha, cg_rate, verbose,warm_start, acceleration_lookback, write_data_filename)
 end
 
-function SCSSettings(linear_solver::Union{Type{Direct}, Type{Indirect}}; options...)
+function SCSSettings(linear_solver::Type{<:LinearSolver}; options...)
 
-    mmatrix = ManagedSCSMatrix(0,0,spzeros(1,1))
+    IntT = inttype(linear_solver)
+    mmatrix = ManagedSCSMatrix(IntT(0), IntT(0), spzeros(1,1))
     matrix = Ref(SCSMatrix(mmatrix))
     default_settings = Ref(SCSSettings{IntT}())
     dummy_data = Ref(SCSData{IntT}(0, 0,
         Base.unsafe_convert(Ptr{SCSMatrix{IntT}}, matrix),
         pointer([0.0]), pointer([0.0]),
-        Base.unsafe_convert(Ptr{SCSSettings}, default_settings)))
+        Base.unsafe_convert(Ptr{SCSSettings{IntT}}, default_settings)))
     SCS_set_default_settings(linear_solver, dummy_data)
     return _SCS_user_settings(default_settings[]; options...)
 end
@@ -174,7 +183,7 @@ function sanatize_SCS_options(options)
     options = Dict(options)
     if haskey(options, :linear_solver)
         linear_solver = options[:linear_solver]
-        if linear_solver == Direct || linear_solver == Indirect
+        if linear_solver isa Type && linear_solver <: LinearSolver
             nothing
         else
             throw(ArgumentError("Unrecognized linear_solver passed to SCS: $linear_solver;\nRecognized options are: $Direct, $Indirect."))
