@@ -2,8 +2,8 @@
     include("mpb_linear.jl")
 end
 
-import MathProgBase
-for T in [SCS.Direct, SCS.Indirect]
+using Compat.Pkg: dir
+for T in solvers
     @testset "MathProgBase $T" begin
         include(joinpath(dirname(dirname(pathof(MathProgBase))), "test", "conicinterface.jl"))
         coniclineartest(SCS.SCSSolver(linear_solver=T, eps=1e-6, verbose=0),
