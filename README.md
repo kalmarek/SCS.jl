@@ -19,17 +19,17 @@ SCS.jl will use [BinaryProvider.jl](https://github.com/JuliaPackaging/BinaryProv
 
 ## Custom Installation
 
-Custom build binaries will allow to use e.g. the indirect solver on gpu, however special caution is required during compilation to ensure proper options and linking:
+Custom build binaries will allow to use e.g. the indirect solver on gpu, however special caution is required during the compilation of the `scs` libraries to ensure proper options and linking:
 
   * `libscsdir` and `libscsindir` need to be compiled with `DLONG=1`.
   * (optional) `libscsgpu` needs to be compiled with `DLONG=0`
 
-All of these libraries should be linked against the `openblas` library used by `julia`.
+All of these libraries should be linked against the `openblas` library used by your `julia` installation.
 
-For instance, to compile (and link scs against `julia`-provided OpenBLAS) one can run
+For instance, to compile and link scs against `julia`-provided OpenBLAS one can run
 ```bash
 $ cd <scs_dir>
-$ make clean
+$ make purge
 $ make DLONG=1 BLASLDFLAGS="-L$JULIA_LIBRARY_PATH -lopenblas64_" BLAS64=1 BLASSUFFIX=_64_
 $ make clean
 $ make DLONG=1 BLASLDFLAGS="-L$JULIA_LIBRARY_PATH -lopenblas64_" BLAS64=1 BLASSUFFIX=_64_ gpu
