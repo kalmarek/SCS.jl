@@ -73,7 +73,11 @@ end
 # use of @gc_preserve in the SCS_solve helper above.
 
 # Take Ref{}s because SCS might modify the structs
-for (T, lib) in zip([SCS.Direct, SCS.Indirect], [SCS.direct, SCS.indirect])
+methods_libs = [(SCS.Direct, SCS.direct), (SCS.Indirect, SCS.indirect)]
+Base.@isdefined(gpu) && push!(methods_libs, (SCS.Gpu, SCS.gpu))
+
+for (T, lib) in methods_libs
+    IntT = inttype(T)
     @eval begin
 
         function SCS_set_default_settings(::Type{$T}, data::Ref{SCSData})
