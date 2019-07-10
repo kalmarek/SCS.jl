@@ -19,22 +19,30 @@ SCS.jl will use [BinaryProvider.jl](https://github.com/JuliaPackaging/BinaryProv
 
 ## Custom Installation
 
-To install custom built SCS binaries set the environmental variable `JULIA_SCS_LIBRARY_PATH` and call `Pkg.build("SCS")`. For instance, if the libraries are installed in `/opt/lib` just call
-```julia
-ENV["JULIA_SCS_LIBRARY_PATH"]="/opt/lib"
-Pkg.build("SCS")
-```
-Note that your custom build binaries need to be compiled with the option `DLONG=1`. For instance, a minimal compilation script would be
+Custom build binaries will allow to use e.g. the indirect solver on gpu, however special caution is required during compilation to ensure proper options and linking:
+
+  * `libscsdir` and `libscsindir` need to be compiled with `DLONG=1`.
+  * (optional) `libscsgpu` needs to be compiled with `DLONG=0`
+
+All of these libraries should be linked against the `openblas` library used by `julia`.
+
+For instance, to compile (and link scs against `julia`-provided OpenBLAS) one can run
 ```bash
 $ cd <scs_dir>
-$ make DLONG=1
-$ julia
-julia> ENV["JULIA_SCS_LIBRARY_PATH"]="<scs_dir>/out"
-] build SCS
+$ make clean
+$ make DLONG=1 BLASLDFLAGS="-L$JULIA_LIBRARY_PATH -lopenblas64_" BLAS64=1 BLASSUFFIX=_64_
+$ make clean
+$ make DLONG=1 BLASLDFLAGS="-L$JULIA_LIBRARY_PATH -lopenblas64_" BLAS64=1 BLASSUFFIX=_64_ gpu
 ```
-where `<scs_dir>` is SCS's source directory.
+where `<scs_dir>` is SCS's source directory and `$JULIA_LIBRARY_PATH` points to the location of libraries shipped with julia (`joinpath(Sys.BINDIR, "..", "lib", "julia")` for example).
+For performance reasons one may add `USE_OPENMP=1` to the above.
+Then set the environmental variable `JULIA_SCS_LIBRARY_PATH` to `<scs_dir/out>` and call `Pkg.build("SCS")`:
+```julia
+ENV["JULIA_SCS_LIBRARY_PATH"]="<scs_dir>/out"
+using Pkg; Pkg.build("SCS")
+```
 
-If you do not want BinaryProvider to download the default binaries on install set  `JULIA_SCS_LIBRARY_PATH`  before calling `Pkg.add("SCS")`.
+If you do not want BinaryProvider to download the default binaries on install set  `JULIA_SCS_LIBRARY_PATH` before calling `Pkg.add("SCS")`.
 
 To switch back to the default binaries clear `JULIA_SCS_LIBRARY_PATH` and call `Pkg.build("SCS")`.
 
@@ -92,7 +100,8 @@ The problem data are
 The function is
 
 ```julia
-function SCS_solve(m::Int, n::Int, A::SCSVecOrMatOrSparse, b::Array{Float64,},
+function SCS_solve(linear_solver::Union{Direct, Indirect},
+    m::Int, n::Int, A::SCSVecOrMatOrSparse, b::Array{Float64,},
     c::Array{Float64,}, f::Int, l::Int, q::Array{Int,}, qsize::Int, s::Array{Int,},
     ssize::Int, ep::Int, ed::Int, p::Array{Float64,}, psize::Int; options...)
 ```
@@ -104,7 +113,7 @@ type Solution
   x::Array{Float64, 1}
   y::Array{Float64, 1}
   s::Array{Float64, 1}
-  status::ASCIIString
+  status::Symbol
   ret_val::Int
   ...
 ```
