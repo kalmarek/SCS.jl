@@ -1,5 +1,7 @@
 using BinaryProvider # requires BinaryProvider 0.3.0 or later
-using Libdl
+if VERSION > v"0.7.0-"
+    using Libdl
+end
 
 # Parse some basic command-line arguments
 const verbose = "--verbose" in ARGS
