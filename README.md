@@ -32,7 +32,7 @@ $ cd <scs_dir>
 $ make purge
 $ make DLONG=1 BLASLDFLAGS="-L$JULIA_LIBRARY_PATH -lopenblas64_" BLAS64=1 BLASSUFFIX=_64_
 $ make clean
-$ make DLONG=1 BLASLDFLAGS="-L$JULIA_LIBRARY_PATH -lopenblas64_" BLAS64=1 BLASSUFFIX=_64_ gpu
+$ make DLONG=0 BLASLDFLAGS="-L$JULIA_LIBRARY_PATH -lopenblas64_" BLAS64=1 BLASSUFFIX=_64_ gpu
 ```
 where `<scs_dir>` is SCS's source directory and `$JULIA_LIBRARY_PATH` points to the location of libraries shipped with julia (`joinpath(Sys.BINDIR, "..", "lib", "julia")` for example).
 For performance reasons one may add `USE_OPENMP=1` to the above.

@@ -11,7 +11,7 @@ struct DirectSolver <: LinearSolver end
 struct IndirectSolver <: LinearSolver end
 struct IndirectGpuSolver <: LinearSolver end
 
-scsint_t(::Type{<:LinearSolver}) = Int64
+scsint_t(::Type{<:LinearSolver}) = Int
 scsint_t(::Type{IndirectGpuSolver}) = Int32
 
 clib(::Type{DirectSolver}) = direct
