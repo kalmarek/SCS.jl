@@ -61,7 +61,7 @@ this_platform = platform_key_abi()
 
 custom_library = false
 if haskey(ENV,"JULIA_SCS_LIBRARY_PATH")
-    names_symbols = Dict("libscsdir"=>:direct, "libscsindir"=>:indirect, "libscsgpu"=>:gpu)
+    names_symbols = Dict("libscsdir"=>:direct, "libscsindir"=>:indirect, "libscsgpu"=>:indirectgpu)
 
     scs_prefix = ENV["JULIA_SCS_LIBRARY_PATH"]
 

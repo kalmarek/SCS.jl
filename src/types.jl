@@ -9,14 +9,14 @@ SCSInt = Union{Int64, Int32}
 abstract type LinearSolver end
 struct DirectSolver <: LinearSolver end
 struct IndirectSolver <: LinearSolver end
-struct GpuSolver <: LinearSolver end
+struct IndirectGpuSolver <: LinearSolver end
 
 scsint_t(::Type{<:LinearSolver}) = Int64
-scsint_t(::Type{GpuSolver}) = Int32
+scsint_t(::Type{IndirectGpuSolver}) = Int32
 
 clib(::Type{DirectSolver}) = direct
 clib(::Type{IndirectSolver}) = indirect
-clib(::Type{GpuSolver}) = gpu
+clib(::Type{IndirectGpuSolver}) = indirectgpu
 
 struct SCSMatrix{T <: SCSInt}
     values::Ptr{Cdouble}

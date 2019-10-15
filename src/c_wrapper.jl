@@ -77,12 +77,17 @@ function SCS_solve(linear_solver::Type{<:LinearSolver},
 
 end
 
+const available_solvers = if Base.@isdefined(indirectgpu)
+    [DirectSolver, IndirectSolver, IndirectGpuSolver]
+else
+    [DirectSolver, IndirectSolver]
+end
+
 # Wrappers for the direct C API.
 # Do not call these wrapper methods directly unless you understand the
 # use of Base.GC.@preserve in the SCS_solve helper above.
 
 # Take Ref{}s because SCS might modify the structs
-const available_solvers = Base.@isdefined(gpu) ? [DirectSolver, IndirectSolver, GpuSolver] : [DirectSolver, IndirectSolver]
 
 for T in available_solvers
     lib = clib(T)
