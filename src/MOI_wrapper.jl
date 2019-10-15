@@ -5,6 +5,16 @@ const VI = MOI.VariableIndex
 
 const MOIU = MOI.Utilities
 
+"""
+    ADMMIterations()
+
+The number of ADMM iterations completed during the solve.
+"""
+struct ADMMIterations <: MOI.AbstractModelAttribute
+end
+
+MOI.is_set_by_optimize(::ADMMIterations) = true
+
 mutable struct MOISolution
     ret_val::Int
     raw_status::String
@@ -14,10 +24,12 @@ mutable struct MOISolution
     objective_value::Float64
     dual_objective_value::Float64
     objective_constant::Float64
-    solve_time::Float64
+    solve_time_sec::Float64
+    iterations::Int
 end
 MOISolution() = MOISolution(0, # SCS_UNFINISHED
-                            "", Float64[], Float64[], Float64[], NaN, NaN, NaN, 0.0)
+                            "", Float64[], Float64[], Float64[], NaN, NaN, NaN,
+                            0.0, 0)
 
 # Used to build the data with allocate-load during `copy_to`.
 # When `optimize!` is called, a the data is passed to SCS
@@ -117,7 +129,8 @@ function MOI.supports_constraint(
     ::Optimizer,
     ::Type{<:MOI.VectorAffineFunction{Float64}},
     ::Type{<:Union{MOI.Zeros, MOI.Nonnegatives, MOI.SecondOrderCone,
-                   MOI.ExponentialCone, MOI.PositiveSemidefiniteConeTriangle,
+                   MOI.ExponentialCone, MOI.DualExponentialCone,
+                   MOI.PositiveSemidefiniteConeTriangle,
                    MOI.PowerCone, MOI.DualPowerCone}})
     return true
 end
@@ -150,7 +163,7 @@ function _allocate_constraint(cone::ConeData, f, s::MOI.Nonnegatives)
     return ci
 end
 function constroffset(cone::ConeData,
-                      ci::CI{<:MOI.AbstractFunction, <:MOI.SecondOrderCone})
+                      ci::CI{<:MOI.AbstractFunction, MOI.SecondOrderCone})
     return cone.f + cone.l + ci.value
 end
 function _allocate_constraint(cone::ConeData, f, s::MOI.SecondOrderCone)
@@ -161,7 +174,7 @@ function _allocate_constraint(cone::ConeData, f, s::MOI.SecondOrderCone)
 end
 function constroffset(cone::ConeData,
                       ci::CI{<:MOI.AbstractFunction,
-                             <:MOI.PositiveSemidefiniteConeTriangle})
+                             MOI.PositiveSemidefiniteConeTriangle})
     return cone.f + cone.l + cone.q + ci.value
 end
 function _allocate_constraint(cone::ConeData, f,
@@ -172,7 +185,7 @@ function _allocate_constraint(cone::ConeData, f,
     return ci
 end
 function constroffset(cone::ConeData,
-                      ci::CI{<:MOI.AbstractFunction, <:MOI.ExponentialCone})
+                      ci::CI{<:MOI.AbstractFunction, MOI.ExponentialCone})
     return cone.f + cone.l + cone.q + cone.s + ci.value
 end
 function _allocate_constraint(cone::ConeData, f, s::MOI.ExponentialCone)
@@ -181,8 +194,17 @@ function _allocate_constraint(cone::ConeData, f, s::MOI.ExponentialCone)
     return ci
 end
 function constroffset(cone::ConeData,
+                      ci::CI{<:MOI.AbstractFunction, MOI.DualExponentialCone})
+    return cone.f + cone.l + cone.q + cone.s + 3cone.ep + ci.value
+end
+function _allocate_constraint(cone::ConeData, f, s::MOI.DualExponentialCone)
+    ci = 3cone.ed
+    cone.ed += 1
+    return ci
+end
+function constroffset(cone::ConeData,
                       ci::CI{<:MOI.AbstractFunction, <:MOI.PowerCone})
-    return cone.f + cone.l + cone.q + cone.s + cone.ep + ci.value
+    return cone.f + cone.l + cone.q + cone.s + 3cone.ep + 3cone.ed + ci.value
 end
 function _allocate_constraint(cone::ConeData, f, s::MOI.PowerCone)
     ci = length(cone.p)
@@ -191,7 +213,7 @@ function _allocate_constraint(cone::ConeData, f, s::MOI.PowerCone)
 end
 function constroffset(cone::ConeData,
                       ci::CI{<:MOI.AbstractFunction, <:MOI.DualPowerCone})
-    return cone.f + cone.l + cone.q + cone.s + cone.ep + ci.value
+    return cone.f + cone.l + cone.q + cone.s + 3cone.ep + 3cone.ed + ci.value
 end
 function _allocate_constraint(cone::ConeData, f, s::MOI.DualPowerCone)
     ci = length(cone.p)
@@ -307,7 +329,7 @@ end
 
 function MOIU.load_variables(optimizer::Optimizer, nvars::Integer)
     cone = optimizer.cone
-    m = cone.f + cone.l + cone.q + cone.s + 3cone.ep + cone.ed + 3 * length(cone.p)
+    m = cone.f + cone.l + cone.q + cone.s + 3cone.ep + 3cone.ed + 3length(cone.p)
     I = Int[]
     J = Int[]
     V = Float64[]
@@ -404,7 +426,7 @@ function MOI.optimize!(optimizer::Optimizer)
         options[:verbose] = 0
     end
 
-    linear_solver, options = sanatize_SCS_options(options)
+    linear_solver, options = sanitize_SCS_options(options)
 
     sol = SCS_solve(linear_solver, m, n, A, b, c,
                     cone.f, cone.l, cone.qa, cone.sa, cone.ep, cone.ed, cone.p,
@@ -417,18 +439,22 @@ function MOI.optimize!(optimizer::Optimizer)
     slack = sol.s
     objective_value = (optimizer.maxsense ? -1 : 1) * sol.info.pobj
     dual_objective_value = (optimizer.maxsense ? -1 : 1) * sol.info.dobj
+    solve_time = (sol.info.setupTime + sol.info.solveTime) / 1000
     optimizer.sol = MOISolution(ret_val, raw_status(sol.info), primal, dual,
                                 slack, objective_value, dual_objective_value,
-                                objective_constant, sol.info.setupTime + sol.info.solveTime)
+                                objective_constant, solve_time, sol.info.iter)
 end
 
 function MOI.get(optimizer::Optimizer, ::MOI.SolveTime)
-    return optimizer.sol.solve_time
+    return optimizer.sol.solve_time_sec
 end
 function MOI.get(optimizer::Optimizer, ::MOI.RawStatusString)
     return optimizer.sol.raw_status
 end
 
+function MOI.get(optimizer::Optimizer, ::ADMMIterations)
+    return optimizer.sol.iterations
+end
 
 # Implements getter for result value and statuses
 # SCS returns one of the following integers:
@@ -469,14 +495,16 @@ function MOI.get(optimizer::Optimizer, ::MOI.TerminationStatus)
     end
 end
 
-function MOI.get(optimizer::Optimizer, ::MOI.ObjectiveValue)
+function MOI.get(optimizer::Optimizer, attr::MOI.ObjectiveValue)
+    MOI.check_result_index_bounds(optimizer, attr)
     value = optimizer.sol.objective_value
     if !MOIU.is_ray(MOI.get(optimizer, MOI.PrimalStatus()))
         value += optimizer.sol.objective_constant
     end
     return value
 end
-function MOI.get(optimizer::Optimizer, ::MOI.DualObjectiveValue)
+function MOI.get(optimizer::Optimizer, attr::MOI.DualObjectiveValue)
+    MOI.check_result_index_bounds(optimizer, attr)
     value = optimizer.sol.dual_objective_value
     if !MOIU.is_ray(MOI.get(optimizer, MOI.DualStatus()))
         value += optimizer.sol.objective_constant
@@ -484,7 +512,10 @@ function MOI.get(optimizer::Optimizer, ::MOI.DualObjectiveValue)
     return value
 end
 
-function MOI.get(optimizer::Optimizer, ::MOI.PrimalStatus)
+function MOI.get(optimizer::Optimizer, attr::MOI.PrimalStatus)
+    if attr.N > MOI.get(optimizer, MOI.ResultCount())
+        return MOI.NO_SOLUTION
+    end
     s = optimizer.sol.ret_val
     if s in (-3, 1, 2)
         MOI.FEASIBLE_POINT
@@ -494,14 +525,16 @@ function MOI.get(optimizer::Optimizer, ::MOI.PrimalStatus)
         MOI.INFEASIBLE_POINT
     end
 end
-function MOI.get(optimizer::Optimizer, ::MOI.VariablePrimal, vi::VI)
+function MOI.get(optimizer::Optimizer, attr::MOI.VariablePrimal, vi::VI)
+    MOI.check_result_index_bounds(optimizer, attr)
     optimizer.sol.primal[vi.value]
 end
-function MOI.get(optimizer::Optimizer, a::MOI.VariablePrimal, vi::Vector{VI})
-    return MOI.get.(optimizer, a, vi)
+function MOI.get(optimizer::Optimizer, attr::MOI.VariablePrimal, vi::Vector{VI})
+    return MOI.get.(optimizer, attr, vi)
 end
-function MOI.get(optimizer::Optimizer, ::MOI.ConstraintPrimal,
+function MOI.get(optimizer::Optimizer, attr::MOI.ConstraintPrimal,
                  ci::CI{<:MOI.AbstractFunction, S}) where S <: MOI.AbstractSet
+    MOI.check_result_index_bounds(optimizer, attr)
     offset = constroffset(optimizer, ci)
     rows = constrrows(optimizer, ci)
     primal = optimizer.sol.slack[offset .+ rows]
@@ -512,7 +545,10 @@ function MOI.get(optimizer::Optimizer, ::MOI.ConstraintPrimal,
     return primal
 end
 
-function MOI.get(optimizer::Optimizer, ::MOI.DualStatus)
+function MOI.get(optimizer::Optimizer, attr::MOI.DualStatus)
+    if attr.N > MOI.get(optimizer, MOI.ResultCount())
+        return MOI.NO_SOLUTION
+    end
     s = optimizer.sol.ret_val
     if s in (-3, 1, 2)
         MOI.FEASIBLE_POINT
@@ -522,8 +558,9 @@ function MOI.get(optimizer::Optimizer, ::MOI.DualStatus)
         MOI.INFEASIBLE_POINT
     end
 end
-function MOI.get(optimizer::Optimizer, ::MOI.ConstraintDual,
+function MOI.get(optimizer::Optimizer, attr::MOI.ConstraintDual,
                  ci::CI{<:MOI.AbstractFunction, S}) where S <: MOI.AbstractSet
+    MOI.check_result_index_bounds(optimizer, attr)
     offset = constroffset(optimizer, ci)
     rows = constrrows(optimizer, ci)
     dual = optimizer.sol.dual[offset .+ rows]
