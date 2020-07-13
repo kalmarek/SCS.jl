@@ -1,5 +1,7 @@
 module SCS
 
+using Libdl
+
 if haskey(ENV, "JULIA_SCS_LIBRARY_PATH") || VERSION < v"1.3"
     if isfile(joinpath(dirname(@__FILE__), "..", "deps", "deps.jl"))
         include(joinpath(dirname(@__FILE__), "..", "deps", "deps.jl"))
@@ -18,9 +20,20 @@ else
     import SCS_jll
     const indirect = SCS_jll.libscsindir
     const direct = SCS_jll.libscsdir
+    if Sys.islinux() && Libdl.dlopen("libcuda.$(Libdl.dlext)"; throw_error=false) !== nothing
+        import SCS_GPU_jll
+	const gpuindirect = SCS_jll.libscsgpuindir
+    end
 end
 
 include("types.jl")
+
+const available_solvers = let
+    solvers = [DirectSolver, IndirectSolver]
+    Base.@isdefined(gpuindirect) && push!(solvers, GpuIndirectSolver)
+    solvers
+end
+
 include("c_wrapper.jl")
 include("MPB_wrapper.jl")
 include("MOI_wrapper.jl")
