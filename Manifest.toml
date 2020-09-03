@@ -159,13 +159,19 @@ uuid = "3fa0cd96-eef1-5676-8a61-b3b8758bbffb"
 deps = ["Serialization"]
 uuid = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
 
+[[Requires]]
+deps = ["UUIDs"]
+git-tree-sha1 = "8c08d0c7812169e438a8478dae2a529377ad13f7"
+uuid = "ae029012-a4dd-5104-9daa-d747884805df"
+version = "1.0.2"
+
 [[SCS_GPU_jll]]
 deps = ["Libdl", "OpenBLAS_jll", "Pkg"]
-git-tree-sha1 = "e79d3aaa266e626d4a5522c72098b41380c5d51e"
+git-tree-sha1 = "4ae11e249dbd4cf71433027b7839866f5321fabf"
 repo-rev = "master"
 repo-url = "https://github.com/kalmarek/SCS_GPU_jll.jl.git"
 uuid = "af6e375f-46ec-5fa0-b791-491b0dfa44a4"
-version = "2.1.1+0"
+version = "2.1.2+0"
 
 [[SCS_jll]]
 deps = ["Libdl", "OpenBLAS_jll", "Pkg"]
